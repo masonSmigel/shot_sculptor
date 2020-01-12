@@ -22,14 +22,14 @@
 #    
 #    INSTALL
 #
-#    1. Move the MS_ShotSculptor.py file to your maya scripts directory. 
+#    1. Move the scripts/MS_ShotSculptor.py file to your maya scripts directory. 
 #
 #        found at:
 #                 MAC :/Users/<user>/Library/Preferences/Autodesk/maya/scripts
 #                 WIN: <drive>:\\Documents\\maya\\scripts
 #
 #
-#    2. Move the MS_shotSculptor_Icon.png to your maya icons directory
+#    2. Move the icons/MS_shotSculptor_Icon.png to your maya icons directory
 #
 #    found at:
 #             MAC :/Users/<user>/Library/Preferences/Autodesk/maya/<version>/prefs/icons
