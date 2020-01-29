@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: UTF-8-*-
 #
 #==========================================================================================
 #
@@ -7,6 +7,7 @@
 #==========================================================================================
 # 
 #  version 0.01     12/15/19
+#  version 0.02     1/28/20
 #
 #    Author: Mason Smigel
 #    
@@ -383,7 +384,7 @@ def deleteShotSculptFrame():
             pm.aliasAttr(bshp + '.' + frame[0], remove = True)  # @UndefinedVariable
             ##delete the target
             pm.removeMultiInstance(bshp + '.weight[' + str(index) + ']', b= True)  # @UndefinedVariable
-            
+          
 def unloadShotSculptGroup():
     
     ssn  =  pm.textFieldGrp("selectedSSNode_tfg", q =True, text = True)
@@ -439,7 +440,7 @@ with main_frame:
                     pm.menuItem("Select Influenced Objects", ann = "Select all objects influenced by the Shot-Sculpt group.",c = "import pymel.core as pm ;ssn = pm.textFieldGrp('selectedSSNode_tfg', q =True, text = True); attr = pm.getAttr(ssn + '.influenceObjs'); pm.select(attr)" )
                     pm.menuItem("Toggle [On/Off]", ann = "Toggle the Shot-Sculpt group on and off", c = pm.Callback(toggleEnvelope))
                  
-                pm.button("loadSSNode_b",l = "◀︎", ann = "Load selected Shot-Sculpt group",w = 30, h =18, c = pm.Callback (loadShotSculptNode))   ## load selected SculptNode as current and update UI
+                pm.button("loadSSNode_b",l = u'\u25c4'  , ann = "Load selected Shot-Sculpt group",w = 30, h =18, c = pm.Callback (loadShotSculptNode))   ## load selected SculptNode as current and update UI
                 with pm.popupMenu():
                     pm.menuItem ("Reload", ann = "Reload the Active Shot-Sculpt group" , c = pm.Callback(reloadShotSculptGroup))
                     pm.menuItem ("Unload" ,ann = "Unload the Active Shot-Sculpt group"  , c = pm.Callback(unloadShotSculptGroup)) 
@@ -463,27 +464,33 @@ with main_frame:
             pm.text("Hold Out")
             pm.text("Ease Out")
             
+            
+            
+            
+        arrowUp = u'\u25b2'
+        arrowDown = u'\u25bc'
+        
         with pm.rowLayout(numberOfColumns  =8,  ct4  = ["left", "left", "left", "left" ], co4 = [5, 0,0,0]  ,columnWidth4  = [50, 50, 50, 50 ] ):
             
-            pm.intField ("EaseInIntFeild",ann = "Ease in time (in frames)" ,v= 2, w = 30)
+            pm.intField ("EaseInIntFeild",ann = "Ease in time (in frames)" ,v= 2, w = 30, h = 30)
             with pm.columnLayout():
-                pm.button("▲",ann = "Add Frame" , w = 15 , h = 10, c = pm.Callback (editIntFeild,"EaseInIntFeild",1 ))
-                pm.button("▼",ann = "Subtract Frame", w = 15 , h = 10, c = pm.Callback (editIntFeild,"EaseInIntFeild",-1 ))
+                pm.button(arrowUp,ann = "Add Frame" , w = 15 , h = 15, c = pm.Callback (editIntFeild,"EaseInIntFeild",1 ))
+                pm.button(arrowDown,ann = "Subtract Frame", w = 15 , h = 15, c = pm.Callback (editIntFeild,"EaseInIntFeild",-1 ))
                 
-            pm.intField ("HoldInIntFeild", ann = "Hold in time (in frames)" ,v= 0, w = 30)
+            pm.intField ("HoldInIntFeild", ann = "Hold in time (in frames)" ,v= 0, w = 30, h = 30)
             with pm.columnLayout():
-                pm.button("▲",ann = "Add Frame" , w = 15 , h = 10, c = pm.Callback (editIntFeild,"HoldInIntFeild",1 ))
-                pm.button("▼",ann = "Subtract Frame", w = 15 , h = 10, c = pm.Callback (editIntFeild,"HoldInIntFeild",-1 ))
+                pm.button(arrowUp,ann = "Add Frame" , w = 15 , h = 15, c = pm.Callback (editIntFeild,"HoldInIntFeild",1 ))
+                pm.button(arrowDown,ann = "Subtract Frame", w = 15 , h = 15, c = pm.Callback (editIntFeild,"HoldInIntFeild",-1 ))
                 
-            pm.intField ("HoldOutIntFeild ", ann = "Hold out time (in frames)" ,v= 0, w = 30)
+            pm.intField ("HoldOutIntFeild ", ann = "Hold out time (in frames)" ,v= 0, w = 30, h = 30)
             with pm.columnLayout():
-                pm.button("▲",ann = "Add Frame" ,w = 15 , h = 10, c = pm.Callback (editIntFeild,"HoldOutIntFeild",1 ))
-                pm.button("▼",ann = "Subtract Frame", w = 15 , h = 10, c = pm.Callback (editIntFeild,"HoldOutIntFeild",-1 ))
+                pm.button(arrowUp,ann = "Add Frame" ,w = 15 , h = 15, c = pm.Callback (editIntFeild,"HoldOutIntFeild",1 ))
+                pm.button(arrowDown,ann = "Subtract Frame", w = 15 , h = 15, c = pm.Callback (editIntFeild,"HoldOutIntFeild",-1 ))
                 
-            pm.intField ("EaseOutIntFeild", ann = "Ease out time (in frames)", v= 2, w = 30)
+            pm.intField ("EaseOutIntFeild", ann = "Ease out time (in frames)", v= 2, w = 30, h = 30)
             with pm.columnLayout():
-                pm.button("▲", ann = "Add Frame" ,w = 15 , h = 10, c = pm.Callback (editIntFeild,"EaseOutIntFeild",1 ))
-                pm.button("▼",ann = "Subtract Frame",w = 15 , h = 10, c = pm.Callback (editIntFeild,"EaseOutIntFeild",-1 ))
+                pm.button(arrowUp, ann = "Add Frame" ,w = 15 , h = 15, c = pm.Callback (editIntFeild,"EaseOutIntFeild",1 ))
+                pm.button(arrowDown,ann = "Subtract Frame",w = 15 , h = 15, c = pm.Callback (editIntFeild,"EaseOutIntFeild",-1 ))
             
         with pm.rowLayout(numberOfColumns  =2,  ct2  = ["left", "left"], co2 = [5,0] ,columnWidth2  = [100, 100 ] ):
             
@@ -496,7 +503,6 @@ with main_frame:
             pm.menuItem( l  = "Auto")
             pm.menuItem( l  = "spline")
             pm.menuItem( l  = "linear")
-                   
     SculptsPanel = pm.frameLayout(l = "Create and Edit Frames", labelVisible = False )
     with SculptsPanel:
         pm.separator()
