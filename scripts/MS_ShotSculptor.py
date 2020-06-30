@@ -7,7 +7,8 @@
 #==========================================================================================
 # 
 #  version 0.01     12/15/19
-#  version 0.02     1/28/20
+#  version 0.02     01/28/20
+#  version 1.00     03/09/20
 #
 #    Author: Mason Smigel
 #    
@@ -64,7 +65,7 @@
 #    
 #------------------------------------------------------------------------------------------
 #------------------------------------------------------------------------------------------
-#
+# Inspired by mGears CRANK shot sculptor
 #==========================================================================================
 
 import pymel.core as pm
@@ -75,21 +76,19 @@ def editIntFeild(intFeild, amt):
     newVal = currentVal + amt
     if newVal >= 0:
         pm.intField(intFeild, e=True, v = newVal)
-                
+    editAnimCurve()
+    
 def createShotSculptNode():
     
     sel = pm.ls(sl=True)
     
     selSize = len(sel)
-    
-    pm.textScrollList("SculptLayers_tsl", e=True, ra=True)
-    pm.textFieldGrp("selectedSSNode_tfg", e =True,text = "No Active Shot-Sculpt group")
 
     ##Run error Checks
     if selSize < 1:
         pm.error("MS Shot-Sculptor: " +"no objects selected")
     for s in sel:
-        if pm.filterExpand(sm=12, fp=True) == None:  # @UndefinedVariable
+        if pm.filterExpand(sm=12, fp=True) == None: 
             pm.error("MS Shot-Sculptor: " + s + " is not a mesh object. Cannot create a Shot-Sculpt Group.", noContext=True)
            
         
@@ -112,11 +111,12 @@ def createShotSculptNode():
         name  = pm.promptDialog(q=True, t =True)
         ssn = pm.group(em=True, n = name + "_ShotSculpt" )
         
-        ##TODO setup the SSnode
+        ##setup the SSnode
         for attr in ['tx', 'ty', 'tz', 'rx', 'ry', 'rz', 'sx', 'sy','sz', 'v']:
             channel  = ssn + "." + attr
             pm.setAttr(channel, l=True, k=False ,cb =False)
-
+        
+        
         pm.addAttr (ssn, longName = "SSN_ID", k=False)
         pm.setAttr (ssn + ".SSN_ID", cb=False)
         
@@ -135,7 +135,7 @@ def createShotSculptNode():
             
             bshpName = sel[i]  + "_"+ ssn  + "_bshp"
             ##create a blendshape
-            pm.blendShape(sel[i],n = bshpName, after = True, tangentSpace =True )  # @UndefinedVariable
+            pm.blendShape(sel[i],n = bshpName, foc = False ) 
             BshpsArray.append(bshpName)
             
             pm.connectAttr(ssn + ".envelope" , BshpsArray[i]+ ".envelope" )
@@ -143,8 +143,13 @@ def createShotSculptNode():
         pm.setAttr(ssn + '.influenceObjs', selArray )
         pm.setAttr(ssn + '.bshps', BshpsArray )
         
-        ##update the UI 
-        pm.textFieldGrp("selectedSSNode_tfg", e =True, text = ssn)  
+        #do UI stuff
+        pm.textScrollList("SculptLayers_tsl", e=True, ra=True)
+        
+        setupMenu()
+       
+        
+    
 
 def autoKey(attr, time):
     
@@ -159,12 +164,12 @@ def autoKey(attr, time):
     OutTangentType = pm.optionMenu("EaseOutTangetType_optmenu", q=True, v=True)
 
     
-    pm.cutKey(attr, t = ":")  # @UndefinedVariable
+    pm.cutKey(attr, t = ":") 
     
-    initKey =  pm.setKeyframe(attr, v=1, t =time, inTangentType = InTangentType, outTangentType = OutTangentType  )  # @UndefinedVariable
+    initKey =  pm.setKeyframe(attr, v=1, t =time, inTangentType = InTangentType, outTangentType = OutTangentType  ) 
     
     if easeInFrames > 0: 
-        pm.setKeyframe(attr,v =0 , t= [time - easeInFrames], outTangentType  = InTangentType) ##ease in @UndefinedVariable
+        pm.setKeyframe(attr,v =0 , t= [time - easeInFrames - holdInFrames], outTangentType  = InTangentType) ##ease in @UndefinedVariable
     else:
         initKey
     
@@ -179,59 +184,74 @@ def autoKey(attr, time):
         initKey
      
     if  easeOutFrames> 0 :        
-        pm.setKeyframe(attr,v =0 , t= [time + easeOutFrames], inTangentType = OutTangentType) ##ease out @UndefinedVariable
+        pm.setKeyframe(attr,v =0 , t= [time + easeOutFrames+ holdOutFrames], inTangentType = OutTangentType) ##ease out @UndefinedVariable
     else: 
         initKey
           
 def loadShotSculptNode():
-    sel = pm.ls(sl=True)
     
     pm.textScrollList("SculptLayers_tsl", e=True, ra=True)
-    pm.textFieldGrp("selectedSSNode_tfg", e =True,text = "No Active Shot-Sculpt group")
+    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True) 
+    
+    if ssn == "--None--":
+       pm.error("MS Shot-Sculptor: " + " please create a Shot Sculpt Node")
+    #make an attr list
+    attr_list = pm.listAttr(ssn, k=True) 
+    attr_list.remove('envelope')
     
     
-    if len(sel) > 0:
-        if pm.attributeQuery('SSN_ID', node = sel[0], exists =True):  # @UndefinedVariable
-            pm.textFieldGrp("selectedSSNode_tfg", e =True, text = sel[0])
-            
-            ## TODO Load all Sculpt Frames
-            attr_list = pm.listAttr(sel[0], k=True)  # @UndefinedVariable
-            
-            attr_list.remove('envelope')
-            
-            pm.textScrollList("SculptLayers_tsl", e=True, append =  attr_list )
-            
-        else: 
-            pm.error("MS Shot-Sculptor: " +"Selection is not a Shot Sculpt Node")
-    else: 
-        pm.warning("MS Shot-Sculptor: " +"Nothing selected")
-         
+    filtered_list = []
+    sorted_list = []
+    
+    ## remove 'Frame_" from all list elments 
+    for elmt in attr_list:
+        num = elmt.split('frame_')[1]
+        
+        filtered_list.append(num)
+     
+    #filter the list numerically    
+    filtered_list.sort(key = int)
+    print filtered_list  
+    
+    
+    ##re-add 'frame_' to all list elements
+    for num in filtered_list: 
+        attr = 'frame_' + num
+        sorted_list.append(attr)
+        
+    ##append the sorted list to the menu
+    pm.textScrollList("SculptLayers_tsl", e=True, append =  sorted_list )
+    
+    try:
+        pm.textScrollList("SculptLayers_tsl", e=True, sii =  1 )
+    except:
+        print "No Frames to load"
+   
 editState = False       
 def createSculptFrame():
     
-    if editState:
-        editSculptFrame()
+
+    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)  
     
-    ssn  =  pm.textFieldGrp("selectedSSNode_tfg", q =True, text = True)  
+    
+    ##if you dont have a group created
+    if ssn == "-- None --":
+        pm.error("MS Shot-Sculptor: " + " please create a Shot Sculpt Node")
     
     influence_objs = pm.getAttr(ssn + '.influenceObjs')
     bshps =  pm.getAttr(ssn + '.bshps')
     
-    
-    pm.textFieldGrp("selectedSSNode_tfg", e = True,text = ssn)
-    if ssn == "No Active Shot-Sculpt node":
-        pm.error("MS Shot-Sculptor: " +" please create or load a Shot Sculpt Node")
-          
+
     ##create a new tangentSpace blendshapes
     
     time =  int(pm.currentTime())
+    
+  
     frameName = "frame_" + str(time) 
+    
+    
     ssnFrameAttr = ssn + "." + frameName
         
-    if pm.attributeQuery(frameName, n = ssn, ex =True):  # @UndefinedVariable
-        pm.warning("MS Shot-Sculptor: " +" A  Sculpt-Frame already exists on frame " + str(time) + ". Entering Edit mode instead")
-        pm.textScrollList("SculptLayers_tsl", e = True, si = 'frame_' + str(time) )
-        editSculptFrame(); return
     
     pm.addAttr(ssn, longName = frameName, at = "float", hasMinValue =True, min = 0,  hasMaxValue = True, max = 1, k=True,  dv = 1 )
     
@@ -245,27 +265,38 @@ def createSculptFrame():
     for i in range(len(influence_objs)):
                           
         ##create a new Blendshape and connect all attrs to SSN                      
-        bshpIndex = pm.blendShape(bshps[i], q=True, wc=True)  # @UndefinedVariable
-                       
+        bshpIndex = pm.blendShape(bshps[i], q=True, wc=True) 
+              
+        print bshpIndex
         ##create a temporary targetObj
         bshp_target = pm.duplicate(influence_objs[i])
         
-        pm.blendShape(bshps[i], edit=True, tangentSpace =True, t =[ influence_objs[i], bshpIndex , bshp_target[0], 1])        # @UndefinedVariable
-        pm.aliasAttr(frameName,  bshps[i] + '.w['+ str(bshpIndex) +']')  # @UndefinedVariable
+        
+        pm.blendShape(bshps[i], edit=True, tangentSpace =True, tc = True , t =[ influence_objs[i], bshpIndex , bshp_target[0], 1]) 
+        pm.blendShape (bshps[i] , e = True, rtd = (0, bshpIndex))
+        
+        pm.aliasAttr(frameName,  bshps[i] + '.w['+ str(bshpIndex) +']') 
+        
+        
         
         ##delete the tempory obj
         pm.delete(bshp_target)
         
         pm.connectAttr(ssnFrameAttr , bshps[i] +  "." + frameName)
+        
+        
+    ##reload the list
+    loadShotSculptNode()
+    pm.textScrollList("SculptLayers_tsl", e = True, si = frameName )    
                 
     autoKey(ssnFrameAttr, pm.currentTime() )
     editSculptFrame()
        
 def getIndexByName(blsNode, targetName):
     attr = blsNode + '.w[{}]'
-    weightCount = pm.blendShape(blsNode, q=True, wc=True)  # @UndefinedVariable
+    weightCount = pm.blendShape(blsNode, q=True, wc=True) 
     for index in xrange(weightCount):
-        if pm.aliasAttr(attr.format(index), q=True) == targetName:  # @UndefinedVariable
+        if pm.aliasAttr(attr.format(index), q=True) == targetName: 
             return index
     return -1 
     
@@ -273,32 +304,38 @@ def editSculptFrame():
     
     global editState 
     
-    ssn  =  pm.textFieldGrp("selectedSSNode_tfg", q =True, text = True)  
+    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)  
+    
+    if ssn == "-- None --":
+        pm.error("MS Shot-Sculptor: " + " please create a Shot Sculpt Node")
+    
+    
     frame = pm.textScrollList("SculptLayers_tsl", q=True, si=True)
     bshps =  pm.getAttr(ssn + '.bshps')
     
 
     if len(frame )<  1:
-        pm.warning("MS Shot-Sculptor: " +"No Frame selected")
+        pm.warning("MS Shot-Sculptor: EditSculptFrame: " +"No Frame selected")
         return
 
 
     ##set time to the time of the SculptFrame
     time  = str(frame[0]).split('_')[1]       
     
-    if  editState:
-        pm.button("editSculptFrame_b", e = True, bgc = [0.35, 0.35, 0.35] , l = "Edit Sculpt-Frame" ) 
+    if editState:
+        pm.button("createSculptFrame_b", e = True, bgc = [0.35, 0.35, 0.35] , l = "Create/Edit Sculpt-Frame" ) 
         
         
         for bshp in bshps:
-            pm.sculptTarget(bshp, e=True,t = -1)  # @UndefinedVariable
+            pm.sculptTarget(bshp, e=True,t = -1) 
         
         pm.select(cl=True)
         pm.mel.eval("setToolTo $gSelect;")
         
         editState = False 
-        
-    else: 
+    
+    
+    else:
         influence_objs = pm.getAttr(ssn + '.influenceObjs')
         
         pm.currentTime(int (time), e = True)
@@ -306,17 +343,40 @@ def editSculptFrame():
         ##set the sculptTargetMode for all blendshapes
         for bshp in bshps:
             index =getIndexByName (bshp, frame[0])
-            pm.sculptTarget(bshp, e=True,t = index)  # @UndefinedVariable
+            
+            pm.sculptTarget(bshp, e=True,t = index) 
         
         ##set UI functions
-        pm.button("editSculptFrame_b", e = True, bgc = [01, 0, 0] , l = "Editing " + frame[0] )
+        pm.button("createSculptFrame_b", e = True, bgc = [01, 0, 0] , l = "Editing " + frame[0] )
         
         pm.select(influence_objs)   
         pm.mel.eval("SetMeshGrabTool")
         editState = True 
+
+def blendshape_btn():
+    global editState 
+    
+    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)  
+    time =  int(pm.currentTime())
+    frameName = "frame_" + str(time) 
+    ssnFrameAttr = ssn + "." + frameName
+        
+    
+    if editState:
+       editSculptFrame()
+    elif pm.attributeQuery(frameName, n = ssn, ex =True): 
+        
+        pm.warning("MS Shot-Sculptor: " +" A  Sculpt-Frame already exists on frame " + str(time) + ". Entering Edit mode instead")
+        pm.textScrollList("SculptLayers_tsl", e=True, si= frameName)
+        editSculptFrame()
+        return
+    
+    
+    else: 
+        createSculptFrame()
         
 def editAnimCurve():
-    ssn  =  pm.textFieldGrp("selectedSSNode_tfg", q =True, text = True)  
+    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)  
     frame = pm.textScrollList("SculptLayers_tsl", q=True, si=True)
     
     if len(frame )< 1:
@@ -333,7 +393,9 @@ def editAnimCurve():
 def deleteShotSculptNode():
     global editState 
     
-    ssn  =  pm.textFieldGrp("selectedSSNode_tfg", q =True, text = True)
+    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)
+    print ssn
+    
     bshps =  pm.getAttr(ssn + '.bshps')
     
     result = pm.confirmDialog(
@@ -350,16 +412,27 @@ def deleteShotSculptNode():
         if editState:
             editSculptFrame()
         
-        pm.textFieldGrp("selectedSSNode_tfg", edit = True,text = "No Active Shot-Sculpt group") 
         pm.textScrollList("SculptLayers_tsl",e =True, ra = True)
         pm.delete(ssn, bshps)
+        pm.deleteUI(str(ssn))
+        
+        
+        existing_ssns = pm.optionMenu('selectedSSNode_menu', q = True, ils = True)
+        print existing_ssns
+        
+        if len(existing_ssns) < 1:
+             pm.menuItem("-- None --" , p = "selectedSSNode_menu" )
+        
+        else:
+            loadShotSculptNode()
+            
     
 def deleteShotSculptFrame():
     
     if editState ==True:
         editSculptFrame()   
     
-    ssn  =  pm.textFieldGrp("selectedSSNode_tfg", q =True, text = True)
+    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)
     bshps =  pm.getAttr(ssn + '.bshps')
     frame = pm.textScrollList("SculptLayers_tsl", q=True, si=True)
 
@@ -372,7 +445,7 @@ def deleteShotSculptFrame():
                 dismissString='No')
     
     if result == 'Yes':    
-        pm.deleteAttr(ssn + '.' + frame[0] )  # @UndefinedVariable
+        pm.deleteAttr(ssn + '.' + frame[0] ) 
         
         pm.textScrollList("SculptLayers_tsl" , e =True , ri  = str(frame[0]))
                           
@@ -381,31 +454,13 @@ def deleteShotSculptFrame():
             index  =   getIndexByName(bshp, frame[0])  
             
             #remove the alias
-            pm.aliasAttr(bshp + '.' + frame[0], remove = True)  # @UndefinedVariable
+            pm.aliasAttr(bshp + '.' + frame[0], remove = True) 
             ##delete the target
-            pm.removeMultiInstance(bshp + '.weight[' + str(index) + ']', b= True)  # @UndefinedVariable
+            pm.removeMultiInstance(bshp + '.weight[' + str(index) + ']', b= True) 
           
-def unloadShotSculptGroup():
-    
-    ssn  =  pm.textFieldGrp("selectedSSNode_tfg", q =True, text = True)
-    if ssn == "No Active Shot-Sculpt group":
-        return
-    
-    pm.textFieldGrp("selectedSSNode_tfg", e =True ,text = "No Active Shot-Sculpt group")
-    pm.textScrollList("SculptLayers_tsl", e =True, ra =True)
-    
-def reloadShotSculptGroup():
-    ssn  =  pm.textFieldGrp("selectedSSNode_tfg", q =True, text = True)
-    selFrame = pm.textScrollList("SculptLayers_tsl", q = True, sii = True)
-    
-    pm.select(ssn)
-    loadShotSculptNode()
-    pm.select(cl = True)
-    
-    selFrame = pm.textScrollList("SculptLayers_tsl", e = True, sii = selFrame)
     
 def toggleEnvelope():
-    ssn  =  pm.textFieldGrp("selectedSSNode_tfg", q =True, text = True)
+    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)
     attr = ssn + ".envelope"
     
     if pm.getAttr(attr) == True:
@@ -415,14 +470,40 @@ def toggleEnvelope():
     elif pm.getAttr(attr) == False:
         pm.setAttr(attr, True)
         pm.headsUpMessage("Shot Sculpt Enabled")
+
+def setupMenu():
+    
+    objs  = pm.ls(type = 'transform')
+    
+
+    existing_grps= pm.optionMenu('selectedSSNode_menu' , q = True, ils = True)
+    
+    if not existing_grps == []:
+        pm.deleteUI(existing_grps)
+
+
+    ssn_nodes = []
+    
+    for obj in objs:
+        if pm.attributeQuery('SSN_ID', node = obj, exists =True):
+            ssn_nodes.append(obj)
+        
+    if ssn_nodes ==[]:
+         pm.menuItem("-- None --", p = "selectedSSNode_menu")
+        
+    for ssn_node in reversed(ssn_nodes) :
+        pm.menuItem(ssn_node, p = "selectedSSNode_menu")
+        loadShotSculptNode()
+    
+
             
-window_obj = "MS_shotSculptor"
-window_label = "MS-Shot-Sculptor--v0.01 "
+window_obj = "ms_shotSculptor"
+window_label = "Shot Sculptor -v1.00 "
 
 if pm.window(window_obj, t= window_label, ex = True):
     pm.deleteUI(window_obj)
     
-MS_shotSculpt_win = pm.window(window_obj, t = window_label, wh = (230,410) , s=False)
+MS_shotSculpt_win = pm.window(window_obj, t = window_label, wh = (230,445) , s=False)
 
 main_frame = pm.frameLayout(lv = False, mw = 10, mh = 10, p = MS_shotSculpt_win)
 with main_frame:
@@ -433,21 +514,18 @@ with main_frame:
         with pm.columnLayout():
             pm.button(l = "Create Shot Scupt Group",ann = "Select all mesh objects to influnce ", w = 210, h = 30, c = pm.Callback(createShotSculptNode) ) ##create a ShotSculptNode from selection
             
-            with pm.rowLayout(numberOfColumns = 2):  
-                pm.textFieldGrp("selectedSSNode_tfg",ann = "Active Shot-Sculpt group",text = "No Active Shot-Sculpt group", editable = False,  w = 175) 
+            with pm.rowLayout(numberOfColumns = 1):  
+                ssn_menu = pm.optionMenu("selectedSSNode_menu", l = "Active Group:", w = 210 , cc = pm.Callback(loadShotSculptNode))
+            
                 with pm.popupMenu() :
-                    pm.menuItem("Select Shot-Sculpt group",ann = "Select the active Shot-Sculpt group" ,c = "import pymel.core as pm ;pm.select(pm.textFieldGrp('selectedSSNode_tfg', q =True, text = True))" )
-                    pm.menuItem("Select Influenced Objects", ann = "Select all objects influenced by the Shot-Sculpt group.",c = "import pymel.core as pm ;ssn = pm.textFieldGrp('selectedSSNode_tfg', q =True, text = True); attr = pm.getAttr(ssn + '.influenceObjs'); pm.select(attr)" )
+                    pm.menuItem("Select Shot-Sculpt group",ann = "Select the active Shot-Sculpt group" ,c = "import pymel.core as pm ;pm.select(pm.optionMenu('selectedSSNode_menu', q =True, v = True))" )
+                    pm.menuItem("Select Influenced Objects", ann = "Select all objects influenced by the Shot-Sculpt group.",c = "import pymel.core as pm ;ssn = pm.optionMenu('selectedSSNode_menu', q =True, v = True); attr = pm.getAttr(ssn + '.influenceObjs'); pm.select(attr)" )
                     pm.menuItem("Toggle [On/Off]", ann = "Toggle the Shot-Sculpt group on and off", c = pm.Callback(toggleEnvelope))
-                 
-                pm.button("loadSSNode_b",l = u'\u25c4'  , ann = "Load selected Shot-Sculpt group",w = 30, h =18, c = pm.Callback (loadShotSculptNode))   ## load selected SculptNode as current and update UI
-                with pm.popupMenu():
-                    pm.menuItem ("Reload", ann = "Reload the Active Shot-Sculpt group" , c = pm.Callback(reloadShotSculptGroup))
-                    pm.menuItem ("Unload" ,ann = "Unload the Active Shot-Sculpt group"  , c = pm.Callback(unloadShotSculptGroup)) 
                     pm.menuItem("Delete", ann = "Delete the active Shot-Sculpt group" , c = pm.Callback(deleteShotSculptNode) )
-     
+
+              
                 
-            pm.textScrollList("SculptLayers_tsl",ann = "Existing Sculpt-Frames",numberOfRows = 8, w = 209)
+            pm.textScrollList("SculptLayers_tsl",ann = "Existing Sculpt-Frames",numberOfRows = 14, w = 209 )
             with pm.popupMenu() :
                 pm.menuItem("Go to Frame", ann = "Go to the Sculpt-Frame" ,c = "import pymel.core as pm ;frame = pm.textScrollList('SculptLayers_tsl', q=True, si=True); pm.currentTime(int(str(frame[0]).split('_')[1]), e=True)")
                 pm.menuItem("Edit Sculpt-Frame", ann = "Edit the Sculpt-Frame. (Toggle to exit edit mode)",c = pm.Callback(editSculptFrame))
@@ -472,52 +550,48 @@ with main_frame:
         
         with pm.rowLayout(numberOfColumns  =8,  ct4  = ["left", "left", "left", "left" ], co4 = [5, 0,0,0]  ,columnWidth4  = [50, 50, 50, 50 ] ):
             
-            pm.intField ("EaseInIntFeild",ann = "Ease in time (in frames)" ,v= 2, w = 30, h = 30)
+            pm.intField ("EaseInIntFeild",ann = "Ease in time (in frames)" ,v= 1, w = 30, h = 30, cc = pm.Callback(editAnimCurve))
             with pm.columnLayout():
                 pm.button(arrowUp,ann = "Add Frame" , w = 15 , h = 15, c = pm.Callback (editIntFeild,"EaseInIntFeild",1 ))
                 pm.button(arrowDown,ann = "Subtract Frame", w = 15 , h = 15, c = pm.Callback (editIntFeild,"EaseInIntFeild",-1 ))
                 
-            pm.intField ("HoldInIntFeild", ann = "Hold in time (in frames)" ,v= 0, w = 30, h = 30)
+            pm.intField ("HoldInIntFeild", ann = "Hold in time (in frames)" ,v= 0, w = 30, h = 30, cc = pm.Callback(editAnimCurve))
             with pm.columnLayout():
                 pm.button(arrowUp,ann = "Add Frame" , w = 15 , h = 15, c = pm.Callback (editIntFeild,"HoldInIntFeild",1 ))
                 pm.button(arrowDown,ann = "Subtract Frame", w = 15 , h = 15, c = pm.Callback (editIntFeild,"HoldInIntFeild",-1 ))
                 
-            pm.intField ("HoldOutIntFeild ", ann = "Hold out time (in frames)" ,v= 0, w = 30, h = 30)
+            pm.intField ("HoldOutIntFeild ", ann = "Hold out time (in frames)" ,v= 0, w = 30, h = 30, cc = pm.Callback(editAnimCurve))
             with pm.columnLayout():
                 pm.button(arrowUp,ann = "Add Frame" ,w = 15 , h = 15, c = pm.Callback (editIntFeild,"HoldOutIntFeild",1 ))
                 pm.button(arrowDown,ann = "Subtract Frame", w = 15 , h = 15, c = pm.Callback (editIntFeild,"HoldOutIntFeild",-1 ))
                 
-            pm.intField ("EaseOutIntFeild", ann = "Ease out time (in frames)", v= 2, w = 30, h = 30)
+            pm.intField ("EaseOutIntFeild", ann = "Ease out time (in frames)", v= 1, w = 30, h = 30, cc = pm.Callback(editAnimCurve))
             with pm.columnLayout():
                 pm.button(arrowUp, ann = "Add Frame" ,w = 15 , h = 15, c = pm.Callback (editIntFeild,"EaseOutIntFeild",1 ))
                 pm.button(arrowDown,ann = "Subtract Frame",w = 15 , h = 15, c = pm.Callback (editIntFeild,"EaseOutIntFeild",-1 ))
             
         with pm.rowLayout(numberOfColumns  =2,  ct2  = ["left", "left"], co2 = [5,0] ,columnWidth2  = [100, 100 ] ):
             
-            pm.optionMenu("EaseInTangetType_optmenu", ann = "In Tangent Type", l = "In", w = 90)
+            pm.optionMenu("EaseInTangetType_optmenu", ann = "In Tangent Type", l = "In", w = 90, cc = pm.Callback(editAnimCurve) )
+            pm.menuItem( l  = "linear")
             pm.menuItem( l  = "Auto")
             pm.menuItem( l  = "spline")
-            pm.menuItem( l  = "linear")
+            
                         
-            pm.optionMenu("EaseOutTangetType_optmenu", ann = "Out Tangent Type", l = "Out", w = 100)
+            pm.optionMenu("EaseOutTangetType_optmenu", ann = "Out Tangent Type", l = "Out", w = 100, cc = pm.Callback(editAnimCurve))
+            pm.menuItem( l  = "linear")
             pm.menuItem( l  = "Auto")
             pm.menuItem( l  = "spline")
-            pm.menuItem( l  = "linear")
     SculptsPanel = pm.frameLayout(l = "Create and Edit Frames", labelVisible = False )
     with SculptsPanel:
         pm.separator()
         with pm.columnLayout():
            
-            pm.button("createSculptFrame_b", ann = "Create a new Sculpt-Frame at the current Time" ,l = "Create Sculpt-Frame", h=40, w = 210, c = pm.Callback(createSculptFrame))
+            pm.button("createSculptFrame_b", ann = "Create a new Sculpt-Frame at the current Time" ,l = "Create/Edit Sculpt-Frame",  h=40, w = 210, c = pm.Callback(blendshape_btn))
             pm.separator()
             
-            with pm.rowLayout(numberOfColumns=2):
-                pm.button("editSculptFrame_b",ann = "Edit the selected Sculpt-Frame", l = "Edit Sculpt-Frame", h=20,w = 103, c = pm.Callback(editSculptFrame) )
-                pm.button("editCurves_b",ann = "Edit the selected Sculpt-Frame Animation Curves", l = "Edit anim Cruve", h=20,w = 103, c = pm.Callback(editAnimCurve) )
      
 pm.showWindow(window_obj)
 
-    
-    
-    
-    
+
+setupMenu()
