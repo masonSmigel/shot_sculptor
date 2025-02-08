@@ -6,13 +6,19 @@
 #
 #==========================================================================================
 # 
-#  version 0.01     12/15/19
-#  version 0.02     01/28/20
-#  version 1.00     03/09/20
+#   version 0.01     12/15/19
+#   version 0.02     01/28/20
+#   version 1.00     03/09/20
 #
-#    Author: Mason Smigel
+#   Author: Mason Smigel
 #    
-#    email: mgsmigel@gmail.com
+#   email: mgsmigel@gmail.com
+#
+#   version 1.5     16/12/24    Adaptation to Python 3, Maya (2022+)
+#
+#   Contributor : Clement Daures
+#
+#   email: clementdaures.contact@gmail.com
 #
 #------------------------------------------------------------------------------------------
 #    
@@ -26,11 +32,11 @@
 #    
 #    INSTALL
 #
-#    1. Move the MS_ShotSculptor.py file to your maya scripts directory. 
+#    1. Move the MS_ShotSculptor_PY3.py file to your maya scripts directory. 
 #
 #        found at:
 #                 MAC :/Users/<user>/Library/Preferences/Autodesk/maya/scripts
-#                 WIN: <drive>:\\Documents\\maya\\scripts
+#                 WIN: <drive>:\\Documents\\maya\\<version>\\scripts
 #
 #
 #    2. Move the MS_shotSculptor_Icon.png to your maya icons directory
@@ -41,12 +47,12 @@
 #                 
 #    3. Restart maya if it is currently running. 
 #
-#    4. select the shelf you would like to add the button to. Drag and drop the install.py file into maya 
+#    4. select the shelf you would like to add the button to. Drag and drop the install_PY3.py file into maya 
 #   
 #                ----------------------- OR -----------------------
 #                
 #                
-#    1. Open the MS_ShotSculptor.py in a python tab of the script editor
+#    1. Open the MS_ShotSculptor_PY3.py in a python tab of the script editor
 #    
 #    2. Run the script
 #    
@@ -70,8 +76,29 @@
 
 import pymel.core as pm
 
+def getValidShotSculptNode():
+    """
+    Retrieves the currently selected Shot Sculpt Node from the option menu.
+    Ensures the value is valid and returns None if not.
+    """
+    ssn = pm.optionMenu("selectedSSNode_menu", q=True, v=True)
+    if not ssn or ssn == "-- None --":
+        pm.warning("No valid Shot Sculpt Node selected. Please select or create a Shot Sculpt Node.")
+        return None
+    return ssn
+
 
 def editIntFeild(intFeild, amt):
+    """
+    Adjusts the value of an integer field by a specified amount.
+
+    Args:
+        intFeild (str): The name or identifier of the integer field to modify.
+        amt (int): The amount to add to the current value of the integer field.
+
+    Returns:
+        None
+    """
     currentVal = pm.intField(intFeild, q=True, v = True)
     newVal = currentVal + amt
     if newVal >= 0:
@@ -79,7 +106,24 @@ def editIntFeild(intFeild, amt):
     editAnimCurve()
     
 def createShotSculptNode():
-    
+    """
+    Creates a Shot-Sculpt node group for the selected objects.
+
+    This function validates the selection of objects in the scene and ensures
+    they are valid mesh objects. If the validation fails, it raises an error.
+    If successful, it processes the selected objects to create a Shot-Sculpt group.
+
+    Error Handling:
+        - Raises an error if no objects are selected.
+        - Raises an error if any of the selected objects are not mesh objects.
+        - Raises an error if a selected object has no shapes associated with it.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     sel = pm.ls(sl=True)
     
     selSize = len(sel)
@@ -88,13 +132,13 @@ def createShotSculptNode():
     if selSize < 1:
         pm.error("MS Shot-Sculptor: " +"no objects selected")
     for s in sel:
-        if pm.filterExpand(sm=12, fp=True) == None: 
+        if pm.filterExpand(sm=12, fp=True) is None: 
             pm.error("MS Shot-Sculptor: " + s + " is not a mesh object. Cannot create a Shot-Sculpt Group.", noContext=True)
            
         
         
         shapes = pm.listRelatives(s, shapes = True)
-        if shapes ==[]:
+        if not shapes :
             pm.error("MS Shot-Sculptor: " + s + "is not a Mesh object. Cannot add to Shot-Sculpt group.", noContext = True)
     
     
@@ -152,7 +196,20 @@ def createShotSculptNode():
     
 
 def autoKey(attr, time):
-    
+    """
+    Automatically keys an attribute with specified ease-in, hold, and ease-out timing.
+
+    This function clears all keys on the specified attribute, then sets new keyframes 
+    based on user-defined ease-in, hold, and ease-out durations. Tangent types for the 
+    keyframes are also configurable.
+
+    Args:
+        attr (str): The name of the attribute to key.
+        time (float): The time at which the main keyframe is set.
+
+    Returns:
+        None
+    """    
 
     ##Get attrs from ui 
     easeInFrames =  pm.intField("EaseInIntFeild" , q=True, v = True)
@@ -189,7 +246,19 @@ def autoKey(attr, time):
         initKey
           
 def loadShotSculptNode():
-    
+    """
+    Loads the Shot Sculpt Node and populates a text scroll list with its attributes.
+
+    This function retrieves the selected Shot Sculpt Node and its keyable attributes,
+    filters them to exclude the 'envelope' attribute, sorts them numerically, and appends
+    them to a UI list for display. If no node is selected, an error is raised.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     pm.textScrollList("SculptLayers_tsl", e=True, ra=True)
     ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True) 
     
@@ -211,7 +280,7 @@ def loadShotSculptNode():
      
     #filter the list numerically    
     filtered_list.sort(key = int)
-    print filtered_list  
+    print(filtered_list)  
     
     
     ##re-add 'frame_' to all list elements
@@ -224,19 +293,32 @@ def loadShotSculptNode():
     
     try:
         pm.textScrollList("SculptLayers_tsl", e=True, sii =  1 )
-    except:
-        print "No Frames to load"
+    except Exception as e:
+        print("No Frames to load")
    
 editState = False       
 def createSculptFrame():
-    
+    """
+    Creates a new sculpt frame for the selected Shot Sculpt Node.
 
-    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)  
-    
-    
-    ##if you dont have a group created
-    if ssn == "-- None --":
-        pm.error("MS Shot-Sculptor: " + " please create a Shot Sculpt Node")
+    This function:
+        1. Validates and retrieves the selected Shot Sculpt Node (SSN).
+        2. Creates a new frame attribute for the SSN based on the current time.
+        3. Updates the UI list with the new frame.
+        4. Adds a tangent-space blend shape for each influence object.
+        5. Connects the new frame attribute to the corresponding blend shape weight attributes.
+        6. Reloads the UI to reflect changes.
+        7. Sets auto keys for the newly created sculpt frame.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+    ssn = getValidShotSculptNode()
+    if not ssn:
+        return  # Exit if no valid node is selected
     
     influence_objs = pm.getAttr(ssn + '.influenceObjs')
     bshps =  pm.getAttr(ssn + '.bshps')
@@ -267,7 +349,7 @@ def createSculptFrame():
         ##create a new Blendshape and connect all attrs to SSN                      
         bshpIndex = pm.blendShape(bshps[i], q=True, wc=True) 
               
-        print bshpIndex
+        print(bshpIndex)
         ##create a temporary targetObj
         bshp_target = pm.duplicate(influence_objs[i])
         
@@ -293,21 +375,52 @@ def createSculptFrame():
     editSculptFrame()
        
 def getIndexByName(blsNode, targetName):
+    """
+    Retrieves the index of a blend shape target by its alias name.
+
+    This function iterates through all the weights of a blend shape node to find 
+    the index corresponding to the given target name. If the target is not found, 
+    it returns -1.
+
+    Args:
+        blsNode (str): The name of the blend shape node.
+        targetName (str): The alias name of the target to search for.
+
+    Returns:
+        int: The index of the target if found, otherwise -1.
+    """
     attr = blsNode + '.w[{}]'
     weightCount = pm.blendShape(blsNode, q=True, wc=True) 
-    for index in xrange(weightCount):
+    for index in range(weightCount):
         if pm.aliasAttr(attr.format(index), q=True) == targetName: 
             return index
     return -1 
     
 def editSculptFrame():
-    
+    """
+    Toggles edit mode for a sculpt frame associated with a Shot Sculpt Node.
+
+    This function performs the following actions:
+        1. Retrieves the currently selected Shot Sculpt Node (SSN) and the active frame.
+        2. If edit mode is active, it disables sculpt editing and resets the tool.
+        3. If edit mode is inactive, it enables sculpt editing for the selected frame and 
+           sets the sculpt target mode for the blend shapes.
+        4. Updates the UI to reflect the current state (editing or not).
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Warnings:
+        - Issues a warning if no frame is selected.
+    """
     global editState 
     
-    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)  
-    
-    if ssn == "-- None --":
-        pm.error("MS Shot-Sculptor: " + " please create a Shot Sculpt Node")
+    ssn = getValidShotSculptNode()
+    if not ssn:
+        return  # Exit if no valid node is selected
     
     
     frame = pm.textScrollList("SculptLayers_tsl", q=True, si=True)
@@ -330,8 +443,11 @@ def editSculptFrame():
             pm.sculptTarget(bshp, e=True,t = -1) 
         
         pm.select(cl=True)
-        pm.mel.eval("setToolTo $gSelect;")
-        
+        try:
+            pm.mel.eval("setToolTo $gSelect;")
+        except Exception as e:
+            print(f"Failed to set select tool: {e}")
+            
         editState = False 
     
     
@@ -347,13 +463,31 @@ def editSculptFrame():
             pm.sculptTarget(bshp, e=True,t = index) 
         
         ##set UI functions
-        pm.button("createSculptFrame_b", e = True, bgc = [01, 0, 0] , l = "Editing " + frame[0] )
+        pm.button("createSculptFrame_b", e = True, bgc = [1, 0, 0] , l = "Editing " + frame[0] )
         
         pm.select(influence_objs)   
         pm.mel.eval("SetMeshGrabTool")
         editState = True 
 
 def blendshape_btn():
+    """
+    Handles the blend shape button functionality for the Shot Sculpt Node.
+
+    This function performs the following:
+        1. If in edit mode (`editState` is True), it toggles edit mode for the current sculpt frame.
+        2. If not in edit mode but a sculpt frame already exists at the current time, it warns the user
+           and switches to edit mode for that frame.
+        3. If no sculpt frame exists for the current time, it creates a new sculpt frame.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        Warning: If a sculpt frame already exists for the current frame, a warning is issued before switching to edit mode.
+    """
     global editState 
     
     ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)  
@@ -376,6 +510,24 @@ def blendshape_btn():
         createSculptFrame()
         
 def editAnimCurve():
+    """
+    Edits the animation curve for the currently selected sculpt frame.
+
+    This function performs the following:
+        1. Retrieves the selected Shot Sculpt Node (SSN) and the active frame.
+        2. Extracts the time associated with the selected frame.
+        3. Calls the `autoKey` function to automatically create or adjust the animation curve 
+           for the frame's attribute at the given time.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Warnings:
+        - Issues a warning if no frame is selected.
+    """
     ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)  
     frame = pm.textScrollList("SculptLayers_tsl", q=True, si=True)
     
@@ -391,16 +543,35 @@ def editAnimCurve():
     autoKey(attr, int(time))   
 
 def deleteShotSculptNode():
+    """
+    Deletes the currently selected Shot Sculpt Node and its associated resources.
+
+    This function performs the following:
+        1. Validates the selected Shot Sculpt Node (SSN).
+        2. Prompts the user for confirmation before deletion.
+        3. If confirmed:
+            - Exits edit mode if active.
+            - Deletes the SSN and its associated blend shapes.
+            - Clears and updates the UI, including the node selection menu.
+        4. If no SSN remains after deletion, adds a placeholder "-- None --" option to the menu.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     global editState 
     
-    ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)
-    print ssn
+    ssn = getValidShotSculptNode()
+    if not ssn:
+        return  # Exit if no valid node is selected
     
     bshps =  pm.getAttr(ssn + '.bshps')
     
     result = pm.confirmDialog(
                 title='Delete Shot Sculpt Group',
-                message='Are you sure you want to delete ' +ssn  + "?",
+                message=f"Are you sure you want to delete {ssn} ?",
                 button=['Yes', 'No'],
                 defaultButton='Yes',
                 cancelButton='No',
@@ -418,7 +589,7 @@ def deleteShotSculptNode():
         
         
         existing_ssns = pm.optionMenu('selectedSSNode_menu', q = True, ils = True)
-        print existing_ssns
+        print(existing_ssns)
         
         if len(existing_ssns) < 1:
              pm.menuItem("-- None --" , p = "selectedSSNode_menu" )
@@ -428,7 +599,25 @@ def deleteShotSculptNode():
             
     
 def deleteShotSculptFrame():
-    
+    """
+    Deletes the currently selected sculpt frame from the Shot Sculpt Node.
+
+    This function performs the following:
+        1. Exits edit mode if it is active.
+        2. Confirms with the user before deleting the selected sculpt frame.
+        3. Deletes the frame attribute from the Shot Sculpt Node.
+        4. Removes the frame from the UI list.
+        5. Deletes the corresponding blend shape target and alias.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        Warning: If no frame is selected, the operation is skipped.
+    """
     if editState ==True:
         editSculptFrame()   
     
@@ -460,6 +649,19 @@ def deleteShotSculptFrame():
           
     
 def toggleEnvelope():
+    """
+    Toggles the envelope attribute of the selected Shot Sculpt Node.
+
+    This function enables or disables the Shot Sculpt system by toggling
+    the envelope attribute of the currently selected Shot Sculpt Node (SSN).
+    A heads-up message is displayed to indicate the current state.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     ssn  =  pm.optionMenu("selectedSSNode_menu", q =True, v = True)
     attr = ssn + ".envelope"
     
@@ -472,29 +674,41 @@ def toggleEnvelope():
         pm.headsUpMessage("Shot Sculpt Enabled")
 
 def setupMenu():
-    
-    objs  = pm.ls(type = 'transform')
-    
+    """
+    Populates the Shot Sculpt Node menu with valid nodes in the scene.
 
+    This function performs the following:
+        1. Clears any existing menu items.
+        2. Searches the scene for transform nodes with the "SSN_ID" attribute.
+        3. Adds nodes with "SSN_ID" to the menu.
+        4. If no valid nodes are found, adds a placeholder "-- None --" option.
+        5. Automatically selects the first valid node in the menu.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+    objs  = pm.ls(type = 'transform')
     existing_grps= pm.optionMenu('selectedSSNode_menu' , q = True, ils = True)
     
-    if not existing_grps == []:
+    if existing_grps:
         pm.deleteUI(existing_grps)
 
 
-    ssn_nodes = []
+    # Find nodes with SSN_ID attribute
+    ssn_nodes = [obj for obj in objs if pm.attributeQuery("SSN_ID", node=obj, exists=True)]
     
-    for obj in objs:
-        if pm.attributeQuery('SSN_ID', node = obj, exists =True):
-            ssn_nodes.append(obj)
+    # Add nodes to the menu or "-- None --" if empty
+    if not ssn_nodes:
+        pm.menuItem("-- None --", p="selectedSSNode_menu")
+    else:
+        for ssn_node in reversed(ssn_nodes):
+            pm.menuItem(ssn_node, p="selectedSSNode_menu")
         
-    if ssn_nodes ==[]:
-         pm.menuItem("-- None --", p = "selectedSSNode_menu")
-        
-    for ssn_node in reversed(ssn_nodes) :
-        pm.menuItem(ssn_node, p = "selectedSSNode_menu")
-        loadShotSculptNode()
-    
+        # Automatically select the first valid node
+        pm.optionMenu("selectedSSNode_menu", e=True, select=1)
 
             
 window_obj = "ms_shotSculptor"
@@ -545,8 +759,8 @@ with main_frame:
             
             
             
-        arrowUp = u'\u25b2'
-        arrowDown = u'\u25bc'
+        arrowUp = '\u25b2'
+        arrowDown = '\u25bc'
         
         with pm.rowLayout(numberOfColumns  =8,  ct4  = ["left", "left", "left", "left" ], co4 = [5, 0,0,0]  ,columnWidth4  = [50, 50, 50, 50 ] ):
             
