@@ -55,7 +55,7 @@ It appears that PyMEL is no longer supported in Maya 2025 and later versions. Cl
     
     2. Run the script
     
-  ## For Maya 2022 and Above (Python 2 Compatible)
+  ## For Maya 2022 and Below (Python 2 Compatible)
 
     1. Move the ShotSculptor_Py2_Compatible/scripts/MS_ShotSculptor_PY2.py file to your maya scripts directory. 
 
